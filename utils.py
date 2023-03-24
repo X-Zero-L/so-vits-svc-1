@@ -149,8 +149,7 @@ def resize_f0(x, target_len):
     source = np.array(x)
     source[source<0.001] = np.nan
     target = np.interp(np.arange(0, len(source)*target_len, len(source))/ target_len, np.arange(0, len(source)), source)
-    res = np.nan_to_num(target)
-    return res
+    return np.nan_to_num(target)
 
 def compute_f0_dio(wav_numpy, p_len=None, sampling_rate=44100, hop_length=512):
     import pyworld
@@ -180,16 +179,16 @@ def f0_to_coarse(f0):
 
 
 def get_hubert_model():
-  vec_path = "hubert/checkpoint_best_legacy_500.pt"
-  print("load model(s) from {}".format(vec_path))
-  from fairseq import checkpoint_utils
-  models, saved_cfg, task = checkpoint_utils.load_model_ensemble_and_task(
-    [vec_path],
-    suffix="",
-  )
-  model = models[0]
-  model.eval()
-  return model
+    vec_path = "hubert/checkpoint_best_legacy_500.pt"
+    print(f"load model(s) from {vec_path}")
+    from fairseq import checkpoint_utils
+    models, saved_cfg, task = checkpoint_utils.load_model_ensemble_and_task(
+      [vec_path],
+      suffix="",
+    )
+    model = models[0]
+    model.eval()
+    return model
 
 def get_hubert_content(hmodel, wav_16k_tensor):
   feats = wav_16k_tensor
@@ -237,33 +236,33 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, skip_optimizer=False
             new_state_dict[k] = saved_state_dict[k]
             assert saved_state_dict[k].shape == v.shape, (saved_state_dict[k].shape, v.shape)
         except:
-            print("error, %s is not in the checkpoint" % k)
-            logger.info("%s is not in the checkpoint" % k)
+            print(f"error, {k} is not in the checkpoint")
+            logger.info(f"{k} is not in the checkpoint")
             new_state_dict[k] = v
     if hasattr(model, 'module'):
         model.module.load_state_dict(new_state_dict)
     else:
         model.load_state_dict(new_state_dict)
     print("load ")
-    logger.info("Loaded checkpoint '{}' (iteration {})".format(
-        checkpoint_path, iteration))
+    logger.info(f"Loaded checkpoint '{checkpoint_path}' (iteration {iteration})")
     return model, optimizer, learning_rate, iteration
 
 
 def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
-  logger.info("Saving model and optimizer state at iteration {} to {}".format(
-    iteration, checkpoint_path))
-  if hasattr(model, 'module'):
-    state_dict = model.module.state_dict()
-  else:
-    state_dict = model.state_dict()
-  torch.save({'model': state_dict,
-              'iteration': iteration,
-              'optimizer': optimizer.state_dict(),
-              'learning_rate': learning_rate}, checkpoint_path)
+    logger.info(
+        f"Saving model and optimizer state at iteration {iteration} to {checkpoint_path}"
+    )
+    if hasattr(model, 'module'):
+      state_dict = model.module.state_dict()
+    else:
+      state_dict = model.state_dict()
+    torch.save({'model': state_dict,
+                'iteration': iteration,
+                'optimizer': optimizer.state_dict(),
+                'learning_rate': learning_rate}, checkpoint_path)
 
 def clean_checkpoints(path_to_models='logs/44k/', n_ckpts_to_keep=2, sort_by_time=True):
-  """Freeing up space by deleting saved ckpts
+    """Freeing up space by deleting saved ckpts
 
   Arguments:
   path_to_models    --  Path to the model directory
@@ -271,16 +270,16 @@ def clean_checkpoints(path_to_models='logs/44k/', n_ckpts_to_keep=2, sort_by_tim
   sort_by_time      --  True -> chronologically delete ckpts
                         False -> lexicographically delete ckpts
   """
-  ckpts_files = [f for f in os.listdir(path_to_models) if os.path.isfile(os.path.join(path_to_models, f))]
-  name_key = (lambda _f: int(re.compile('._(\d+)\.pth').match(_f).group(1)))
-  time_key = (lambda _f: os.path.getmtime(os.path.join(path_to_models, _f)))
-  sort_key = time_key if sort_by_time else name_key
-  x_sorted = lambda _x: sorted([f for f in ckpts_files if f.startswith(_x) and not f.endswith('_0.pth')], key=sort_key)
-  to_del = [os.path.join(path_to_models, fn) for fn in
-            (x_sorted('G')[:-n_ckpts_to_keep] + x_sorted('D')[:-n_ckpts_to_keep])]
-  del_info = lambda fn: logger.info(f".. Free up space by deleting ckpt {fn}")
-  del_routine = lambda x: [os.remove(x), del_info(x)]
-  rs = [del_routine(fn) for fn in to_del]
+    ckpts_files = [f for f in os.listdir(path_to_models) if os.path.isfile(os.path.join(path_to_models, f))]
+    name_key = lambda _f: int(re.compile('._(\d+)\.pth').match(_f)[1])
+    time_key = (lambda _f: os.path.getmtime(os.path.join(path_to_models, _f)))
+    sort_key = time_key if sort_by_time else name_key
+    x_sorted = lambda _x: sorted([f for f in ckpts_files if f.startswith(_x) and not f.endswith('_0.pth')], key=sort_key)
+    to_del = [os.path.join(path_to_models, fn) for fn in
+              (x_sorted('G')[:-n_ckpts_to_keep] + x_sorted('D')[:-n_ckpts_to_keep])]
+    del_info = lambda fn: logger.info(f".. Free up space by deleting ckpt {fn}")
+    del_routine = lambda x: [os.remove(x), del_info(x)]
+    rs = [del_routine(fn) for fn in to_del]
 
 def summarize(writer, global_step, scalars={}, histograms={}, images={}, audios={}, audio_sampling_rate=22050):
   for k, v in scalars.items():
@@ -409,32 +408,32 @@ def get_hparams_from_dir(model_dir):
 
 
 def get_hparams_from_file(config_path):
-  with open(config_path, "r") as f:
-    data = f.read()
-  config = json.loads(data)
+    with open(config_path, "r") as f:
+      data = f.read()
+    config = json.loads(data)
 
-  hparams =HParams(**config)
-  return hparams
+    return HParams(**config)
 
 
 def check_git_hash(model_dir):
-  source_dir = os.path.dirname(os.path.realpath(__file__))
-  if not os.path.exists(os.path.join(source_dir, ".git")):
-    logger.warn("{} is not a git repository, therefore hash value comparison will be ignored.".format(
-      source_dir
-    ))
-    return
+    source_dir = os.path.dirname(os.path.realpath(__file__))
+    if not os.path.exists(os.path.join(source_dir, ".git")):
+        logger.warn(
+            f"{source_dir} is not a git repository, therefore hash value comparison will be ignored."
+        )
+        return
 
-  cur_hash = subprocess.getoutput("git rev-parse HEAD")
+    cur_hash = subprocess.getoutput("git rev-parse HEAD")
 
-  path = os.path.join(model_dir, "githash")
-  if os.path.exists(path):
-    saved_hash = open(path).read()
-    if saved_hash != cur_hash:
-      logger.warn("git hash values are different. {}(saved) != {}(current)".format(
-        saved_hash[:8], cur_hash[:8]))
-  else:
-    open(path, "w").write(cur_hash)
+    path = os.path.join(model_dir, "githash")
+    if os.path.exists(path):
+        saved_hash = open(path).read()
+        if saved_hash != cur_hash:
+            logger.warn(
+                f"git hash values are different. {saved_hash[:8]}(saved) != {cur_hash[:8]}(current)"
+            )
+    else:
+        open(path, "w").write(cur_hash)
 
 
 def get_logger(model_dir, filename="train.log"):
@@ -460,12 +459,9 @@ def repeat_expand_2d(content, target_len):
     temp = torch.arange(src_len+1) * target_len / src_len
     current_pos = 0
     for i in range(target_len):
-        if i < temp[current_pos+1]:
-            target[:, i] = content[:, current_pos]
-        else:
+        if i >= temp[current_pos + 1]:
             current_pos += 1
-            target[:, i] = content[:, current_pos]
-
+        target[:, i] = content[:, current_pos]
     return target
 
 

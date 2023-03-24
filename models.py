@@ -35,7 +35,7 @@ class ResidualCouplingBlock(nn.Module):
     self.gin_channels = gin_channels
 
     self.flows = nn.ModuleList()
-    for i in range(n_flows):
+    for _ in range(n_flows):
       self.flows.append(modules.ResidualCouplingLayer(channels, hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels, mean_only=True))
       self.flows.append(modules.Flip())
 
@@ -187,27 +187,29 @@ class DiscriminatorS(torch.nn.Module):
 
 class MultiPeriodDiscriminator(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
-        super(MultiPeriodDiscriminator, self).__init__()
-        periods = [2,3,5,7,11]
+      super(MultiPeriodDiscriminator, self).__init__()
+      periods = [2,3,5,7,11]
 
-        discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
-        discs = discs + [DiscriminatorP(i, use_spectral_norm=use_spectral_norm) for i in periods]
-        self.discriminators = nn.ModuleList(discs)
+      discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
+      discs += [
+          DiscriminatorP(i, use_spectral_norm=use_spectral_norm) for i in periods
+      ]
+      self.discriminators = nn.ModuleList(discs)
 
     def forward(self, y, y_hat):
-        y_d_rs = []
-        y_d_gs = []
-        fmap_rs = []
-        fmap_gs = []
-        for i, d in enumerate(self.discriminators):
-            y_d_r, fmap_r = d(y)
-            y_d_g, fmap_g = d(y_hat)
-            y_d_rs.append(y_d_r)
-            y_d_gs.append(y_d_g)
-            fmap_rs.append(fmap_r)
-            fmap_gs.append(fmap_g)
+      y_d_rs = []
+      y_d_gs = []
+      fmap_rs = []
+      fmap_gs = []
+      for d in self.discriminators:
+        y_d_r, fmap_r = d(y)
+        y_d_g, fmap_g = d(y_hat)
+        y_d_rs.append(y_d_r)
+        y_d_gs.append(y_d_g)
+        fmap_rs.append(fmap_r)
+        fmap_gs.append(fmap_g)
 
-        return y_d_rs, y_d_gs, fmap_rs, fmap_gs
+      return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
 
 class SpeakerEncoder(torch.nn.Module):
@@ -232,24 +234,24 @@ class SpeakerEncoder(torch.nn.Module):
         return mel_slices
 
     def embed_utterance(self, mel, partial_frames=128, partial_hop=64):
-        mel_len = mel.size(1)
-        last_mel = mel[:,-partial_frames:]
+      mel_len = mel.size(1)
+      last_mel = mel[:,-partial_frames:]
 
-        if mel_len > partial_frames:
-            mel_slices = self.compute_partial_slices(mel_len, partial_frames, partial_hop)
-            mels = list(mel[:,s] for s in mel_slices)
-            mels.append(last_mel)
-            mels = torch.stack(tuple(mels), 0).squeeze(1)
+      if mel_len > partial_frames:
+        mel_slices = self.compute_partial_slices(mel_len, partial_frames, partial_hop)
+        mels = [mel[:,s] for s in mel_slices]
+        mels.append(last_mel)
+        mels = torch.stack(tuple(mels), 0).squeeze(1)
 
-            with torch.no_grad():
-                partial_embeds = self(mels)
-            embed = torch.mean(partial_embeds, axis=0).unsqueeze(0)
-            #embed = embed / torch.linalg.norm(embed, 2)
-        else:
-            with torch.no_grad():
-                embed = self(last_mel)
+        with torch.no_grad():
+            partial_embeds = self(mels)
+        embed = torch.mean(partial_embeds, axis=0).unsqueeze(0)
+              #embed = embed / torch.linalg.norm(embed, 2)
+      else:
+        with torch.no_grad():
+            embed = self(last_mel)
 
-        return embed
+      return embed
 
 class F0Decoder(nn.Module):
     def __init__(self,
@@ -416,5 +418,4 @@ class SynthesizerTrn(nn.Module):
 
     z_p, m_p, logs_p, c_mask = self.enc_p(x, x_mask, f0=f0_to_coarse(f0), noice_scale=noice_scale)
     z = self.flow(z_p, c_mask, g=g, reverse=True)
-    o = self.dec(z * c_mask, g=g, f0=f0)
-    return o
+    return self.dec(z * c_mask, g=g, f0=f0)

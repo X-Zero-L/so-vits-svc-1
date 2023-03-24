@@ -22,14 +22,14 @@ hop_length = hps.data.hop_length
 def process_one(filename, hmodel):
     # print(filename)
     wav, sr = librosa.load(filename, sr=sampling_rate)
-    soft_path = filename + ".soft.pt"
+    soft_path = f"{filename}.soft.pt"
     if not os.path.exists(soft_path):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         wav16k = librosa.resample(wav, orig_sr=sampling_rate, target_sr=16000)
         wav16k = torch.from_numpy(wav16k).to(device)
         c = utils.get_hubert_content(hmodel, wav_16k_tensor=wav16k)
         torch.save(c.cpu(), soft_path)
-    f0_path = filename + ".f0.npy"
+    f0_path = f"{filename}.f0.npy"
     if not os.path.exists(f0_path):
         f0 = utils.compute_f0_dio(wav, sampling_rate=sampling_rate, hop_length=hop_length)
         np.save(f0_path, f0)

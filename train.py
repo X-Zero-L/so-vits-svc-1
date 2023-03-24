@@ -213,11 +213,18 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
                     100. * batch_idx / len(train_loader)))
                 logger.info(f"Losses: {[x.item() for x in losses]}, step: {global_step}, lr: {lr}")
 
-                scalar_dict = {"loss/g/total": loss_gen_all, "loss/d/total": loss_disc_all, "learning_rate": lr,
-                               "grad_norm_d": grad_norm_d, "grad_norm_g": grad_norm_g}
-                scalar_dict.update({"loss/g/fm": loss_fm, "loss/g/mel": loss_mel, "loss/g/kl": loss_kl,
-                                    "loss/g/lf0": loss_lf0})
-
+                scalar_dict = {
+                    "loss/g/total": loss_gen_all,
+                    "loss/d/total": loss_disc_all,
+                    "learning_rate": lr,
+                    "grad_norm_d": grad_norm_d,
+                    "grad_norm_g": grad_norm_g,
+                } | {
+                    "loss/g/fm": loss_fm,
+                    "loss/g/mel": loss_mel,
+                    "loss/g/kl": loss_kl,
+                    "loss/g/lf0": loss_lf0,
+                }
                 # scalar_dict.update({"loss/g/{}".format(i): v for i, v in enumerate(losses_gen)})
                 # scalar_dict.update({"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)})
                 # scalar_dict.update({"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)})
@@ -240,10 +247,20 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
             if global_step % hps.train.eval_interval == 0:
                 evaluate(hps, net_g, eval_loader, writer_eval)
-                utils.save_checkpoint(net_g, optim_g, hps.train.learning_rate, epoch,
-                                      os.path.join(hps.model_dir, "G_{}.pth".format(global_step)))
-                utils.save_checkpoint(net_d, optim_d, hps.train.learning_rate, epoch,
-                                      os.path.join(hps.model_dir, "D_{}.pth".format(global_step)))
+                utils.save_checkpoint(
+                    net_g,
+                    optim_g,
+                    hps.train.learning_rate,
+                    epoch,
+                    os.path.join(hps.model_dir, f"G_{global_step}.pth"),
+                )
+                utils.save_checkpoint(
+                    net_d,
+                    optim_d,
+                    hps.train.learning_rate,
+                    epoch,
+                    os.path.join(hps.model_dir, f"D_{global_step}.pth"),
+                )
                 keep_ckpts = getattr(hps.train, 'keep_ckpts', 0)
                 if keep_ckpts > 0:
                     utils.clean_checkpoints(path_to_models=hps.model_dir, n_ckpts_to_keep=keep_ckpts, sort_by_time=True)
@@ -290,14 +307,16 @@ def evaluate(hps, generator, eval_loader, writer_eval):
                 hps.data.mel_fmax
             )
 
-            audio_dict.update({
+            audio_dict |= {
                 f"gen/audio_{batch_idx}": y_hat[0],
-                f"gt/audio_{batch_idx}": y[0]
-            })
-        image_dict.update({
-            f"gen/mel": utils.plot_spectrogram_to_numpy(y_hat_mel[0].cpu().numpy()),
-            "gt/mel": utils.plot_spectrogram_to_numpy(mel[0].cpu().numpy())
-        })
+                f"gt/audio_{batch_idx}": y[0],
+            }
+        image_dict |= {
+            "gen/mel": utils.plot_spectrogram_to_numpy(
+                y_hat_mel[0].cpu().numpy()
+            ),
+            "gt/mel": utils.plot_spectrogram_to_numpy(mel[0].cpu().numpy()),
+        }
     utils.summarize(
         writer=writer_eval,
         global_step=global_step,
