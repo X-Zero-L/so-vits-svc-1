@@ -13,7 +13,7 @@ class Slicer:
                  max_sil_kept: int = 5000):
         if not min_length >= min_interval >= hop_size:
             raise ValueError('The following condition must be satisfied: min_length >= min_interval >= hop_size')
-        if not max_sil_kept >= hop_size:
+        if max_sil_kept < hop_size:
             raise ValueError('The following condition must be satisfied: max_sil_kept >= hop_size')
         min_interval = sr * min_interval / 1000
         self.threshold = 10 ** (threshold / 20.)
@@ -31,10 +31,7 @@ class Slicer:
 
     # @timeit
     def slice(self, waveform):
-        if len(waveform.shape) > 1:
-            samples = librosa.to_mono(waveform)
-        else:
-            samples = waveform
+        samples = librosa.to_mono(waveform) if len(waveform.shape) > 1 else waveform
         if samples.shape[0] <= self.min_length:
             return {"0": {"slice": False, "split_time": f"0,{len(waveform)}"}}
         rms_list = librosa.feature.rms(y=samples, frame_length=self.win_size, hop_length=self.hop_size).squeeze(0)
@@ -91,30 +88,25 @@ class Slicer:
             silence_end = min(total_frames, silence_start + self.max_sil_kept)
             pos = rms_list[silence_start: silence_end + 1].argmin() + silence_start
             sil_tags.append((pos, total_frames + 1))
-        # Apply and return slices.
-        if len(sil_tags) == 0:
+        if not sil_tags:
             return {"0": {"slice": False, "split_time": f"0,{len(waveform)}"}}
-        else:
-            chunks = []
-            # 第一段静音并非从头开始，补上有声片段
-            if sil_tags[0][0]:
-                chunks.append(
-                    {"slice": False, "split_time": f"0,{min(waveform.shape[0], sil_tags[0][0] * self.hop_size)}"})
-            for i in range(0, len(sil_tags)):
-                # 标识有声片段（跳过第一段）
-                if i:
-                    chunks.append({"slice": False,
-                                   "split_time": f"{sil_tags[i - 1][1] * self.hop_size},{min(waveform.shape[0], sil_tags[i][0] * self.hop_size)}"})
-                # 标识所有静音片段
-                chunks.append({"slice": True,
-                               "split_time": f"{sil_tags[i][0] * self.hop_size},{min(waveform.shape[0], sil_tags[i][1] * self.hop_size)}"})
-            # 最后一段静音并非结尾，补上结尾片段
-            if sil_tags[-1][1] * self.hop_size < len(waveform):
-                chunks.append({"slice": False, "split_time": f"{sil_tags[-1][1] * self.hop_size},{len(waveform)}"})
-            chunk_dict = {}
-            for i in range(len(chunks)):
-                chunk_dict[str(i)] = chunks[i]
-            return chunk_dict
+        chunks = []
+        # 第一段静音并非从头开始，补上有声片段
+        if sil_tags[0][0]:
+            chunks.append(
+                {"slice": False, "split_time": f"0,{min(waveform.shape[0], sil_tags[0][0] * self.hop_size)}"})
+        for i in range(len(sil_tags)):
+            # 标识有声片段（跳过第一段）
+            if i:
+                chunks.append({"slice": False,
+                               "split_time": f"{sil_tags[i - 1][1] * self.hop_size},{min(waveform.shape[0], sil_tags[i][0] * self.hop_size)}"})
+            # 标识所有静音片段
+            chunks.append({"slice": True,
+                           "split_time": f"{sil_tags[i][0] * self.hop_size},{min(waveform.shape[0], sil_tags[i][1] * self.hop_size)}"})
+        # 最后一段静音并非结尾，补上结尾片段
+        if sil_tags[-1][1] * self.hop_size < len(waveform):
+            chunks.append({"slice": False, "split_time": f"{sil_tags[-1][1] * self.hop_size},{len(waveform)}"})
+        return {str(i): chunks[i] for i in range(len(chunks))}
 
 
 def cut(audio_path, db_thresh=-30, min_len=5000):
@@ -124,8 +116,7 @@ def cut(audio_path, db_thresh=-30, min_len=5000):
         threshold=db_thresh,
         min_length=min_len
     )
-    chunks = slicer.slice(audio)
-    return chunks
+    return slicer.slice(audio)
 
 
 def chunks2audio(audio_path, chunks):
@@ -135,7 +126,7 @@ def chunks2audio(audio_path, chunks):
         audio = torch.mean(audio, dim=0).unsqueeze(0)
     audio = audio.cpu().numpy()[0]
     result = []
-    for k, v in chunks.items():
+    for v in chunks.values():
         tag = v["split_time"].split(",")
         if tag[0] != tag[1]:
             result.append((v["slice"], audio[int(tag[0]):int(tag[1])]))

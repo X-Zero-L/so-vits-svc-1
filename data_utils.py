@@ -42,8 +42,9 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         filename = filename.replace("\\", "/")
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
-            raise ValueError("{} SR doesn't match target {} SR".format(
-                sampling_rate, self.sampling_rate))
+            raise ValueError(
+                f"{sampling_rate} SR doesn't match target {self.sampling_rate} SR"
+            )
         audio_norm = audio / self.max_wav_value
         audio_norm = audio_norm.unsqueeze(0)
         spec_filename = filename.replace(".wav", ".spec.pt")
@@ -59,12 +60,12 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         spk = filename.split("/")[-2]
         spk = torch.LongTensor([self.spk_map[spk]])
 
-        f0 = np.load(filename + ".f0.npy")
+        f0 = np.load(f"{filename}.f0.npy")
         f0, uv = utils.interpolate_f0(f0)
         f0 = torch.FloatTensor(f0)
         uv = torch.FloatTensor(uv)
 
-        c = torch.load(filename+ ".soft.pt")
+        c = torch.load(f"{filename}.soft.pt")
         c = utils.repeat_expand_2d(c.squeeze(0), f0.shape[0])
 
 
@@ -100,8 +101,8 @@ class TextAudioCollate:
             torch.LongTensor([x[0].shape[1] for x in batch]),
             dim=0, descending=True)
 
-        max_c_len = max([x[0].size(1) for x in batch])
-        max_wav_len = max([x[3].size(1) for x in batch])
+        max_c_len = max(x[0].size(1) for x in batch)
+        max_wav_len = max(x[3].size(1) for x in batch)
 
         lengths = torch.LongTensor(len(batch))
 

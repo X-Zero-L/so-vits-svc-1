@@ -28,7 +28,7 @@ class FFT(nn.Module):
     self.norm_layers_0 = nn.ModuleList()
     self.ffn_layers = nn.ModuleList()
     self.norm_layers_1 = nn.ModuleList()
-    for i in range(self.n_layers):
+    for _ in range(self.n_layers):
       self.self_attn_layers.append(
         MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout, proximal_bias=proximal_bias,
                            proximal_init=proximal_init))
@@ -72,7 +72,7 @@ class Encoder(nn.Module):
     self.norm_layers_1 = nn.ModuleList()
     self.ffn_layers = nn.ModuleList()
     self.norm_layers_2 = nn.ModuleList()
-    for i in range(self.n_layers):
+    for _ in range(self.n_layers):
       self.attn_layers.append(MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout, window_size=window_size))
       self.norm_layers_1.append(LayerNorm(hidden_channels))
       self.ffn_layers.append(FFN(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout))
@@ -112,7 +112,7 @@ class Decoder(nn.Module):
     self.norm_layers_1 = nn.ModuleList()
     self.ffn_layers = nn.ModuleList()
     self.norm_layers_2 = nn.ModuleList()
-    for i in range(self.n_layers):
+    for _ in range(self.n_layers):
       self.self_attn_layers.append(MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout, proximal_bias=proximal_bias, proximal_init=proximal_init))
       self.norm_layers_0.append(LayerNorm(hidden_channels))
       self.encdec_attn_layers.append(MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout))
@@ -230,8 +230,7 @@ class MultiHeadAttention(nn.Module):
     y: [h or 1, m, d]
     ret: [b, h, l, d]
     """
-    ret = torch.matmul(x, y.unsqueeze(0))
-    return ret
+    return torch.matmul(x, y.unsqueeze(0))
 
   def _matmul_with_relative_keys(self, x, y):
     """
@@ -239,8 +238,7 @@ class MultiHeadAttention(nn.Module):
     y: [h or 1, m, d]
     ret: [b, h, l, m]
     """
-    ret = torch.matmul(x, y.unsqueeze(0).transpose(-2, -1))
-    return ret
+    return torch.matmul(x, y.unsqueeze(0).transpose(-2, -1))
 
   def _get_relative_embeddings(self, relative_embeddings, length):
     max_relative_position = 2 * self.window_size + 1
@@ -254,8 +252,7 @@ class MultiHeadAttention(nn.Module):
           commons.convert_pad_shape([[0, 0], [pad_length, pad_length], [0, 0]]))
     else:
       padded_relative_embeddings = relative_embeddings
-    used_relative_embeddings = padded_relative_embeddings[:,slice_start_position:slice_end_position]
-    return used_relative_embeddings
+    return padded_relative_embeddings[:,slice_start_position:slice_end_position]
 
   def _relative_position_to_absolute_position(self, x):
     """
@@ -270,9 +267,8 @@ class MultiHeadAttention(nn.Module):
     x_flat = x.view([batch, heads, length * 2 * length])
     x_flat = F.pad(x_flat, commons.convert_pad_shape([[0,0],[0,0],[0,length-1]]))
 
-    # Reshape and slice out the padded elements.
-    x_final = x_flat.view([batch, heads, length+1, 2*length-1])[:, :, :length, length-1:]
-    return x_final
+    return x_flat.view([batch, heads, length + 1, 2 * length - 1])[:, :, :length,
+                                                                   length - 1:]
 
   def _absolute_position_to_relative_position(self, x):
     """
@@ -285,8 +281,7 @@ class MultiHeadAttention(nn.Module):
     x_flat = x.view([batch, heads, length**2 + length*(length -1)])
     # add 0's in the beginning that will skew the elements after reshape
     x_flat = F.pad(x_flat, commons.convert_pad_shape([[0, 0], [0, 0], [length, 0]]))
-    x_final = x_flat.view([batch, heads, length, 2*length])[:,:,:,1:]
-    return x_final
+    return x_flat.view([batch, heads, length, 2*length])[:,:,:,1:]
 
   def _attention_bias_proximal(self, length):
     """Bias for self-attention to encourage attention to close positions.
@@ -311,11 +306,7 @@ class FFN(nn.Module):
     self.activation = activation
     self.causal = causal
 
-    if causal:
-      self.padding = self._causal_padding
-    else:
-      self.padding = self._same_padding
-
+    self.padding = self._causal_padding if causal else self._same_padding
     self.conv_1 = nn.Conv1d(in_channels, filter_channels, kernel_size)
     self.conv_2 = nn.Conv1d(filter_channels, out_channels, kernel_size)
     self.drop = nn.Dropout(p_dropout)

@@ -34,7 +34,7 @@ class ResidualCouplingBlock(nn.Module):
         self.gin_channels = gin_channels
 
         self.flows = nn.ModuleList()
-        for i in range(n_flows):
+        for _ in range(n_flows):
             self.flows.append(
                 modules.ResidualCouplingLayer(channels, hidden_channels, kernel_size, dilation_rate, n_layers,
                                               gin_channels=gin_channels, mean_only=True))
@@ -331,5 +331,4 @@ class SynthesizerTrn(nn.Module):
 
         z_p, m_p, logs_p, c_mask = self.enc_p(x, x_mask, f0=f0_to_coarse(f0), z=noise)
         z = self.flow(z_p, c_mask, g=g, reverse=True)
-        o = self.dec(z * c_mask, g=g, f0=f0)
-        return o
+        return self.dec(z * c_mask, g=g, f0=f0)

@@ -25,8 +25,7 @@ def resize2d_f0(x, target_len):
     source[source < 0.001] = np.nan
     target = np.interp(np.arange(0, len(source) * target_len, len(source)) / target_len, np.arange(0, len(source)),
                        source)
-    res = np.nan_to_num(target)
-    return res
+    return np.nan_to_num(target)
 
 def get_f0(x, p_len,f0_up_key=0):
 
@@ -66,13 +65,12 @@ def plt_pitch(input_pitch):
 
 
 def f0_to_pitch(ff):
-    f0_pitch = 69 + 12 * np.log2(ff / 440)
-    return f0_pitch
+    return 69 + 12 * np.log2(ff / 440)
 
 
 def fill_a_to_b(a, b):
     if len(a) < len(b):
-        for _ in range(0, len(b) - len(a)):
+        for _ in range(len(b) - len(a)):
             a.append(a[0])
 
 

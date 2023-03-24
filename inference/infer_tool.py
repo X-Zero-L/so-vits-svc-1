@@ -73,9 +73,11 @@ def get_end_file(dir_path, end):
     for root, dirs, files in os.walk(dir_path):
         files = [f for f in files if f[0] != '.']
         dirs[:] = [d for d in dirs if d[0] != '.']
-        for f_file in files:
-            if f_file.endswith(end):
-                file_lists.append(os.path.join(root, f_file).replace("\\", "/"))
+        file_lists.extend(
+            os.path.join(root, f_file).replace("\\", "/")
+            for f_file in files
+            if f_file.endswith(end)
+        )
     return file_lists
 
 
@@ -84,7 +86,7 @@ def get_md5(content):
 
 def fill_a_to_b(a, b):
     if len(a) < len(b):
-        for _ in range(0, len(b) - len(a)):
+        for _ in range(len(b) - len(a)):
             a.append(a[0])
 
 def mkdir(paths: list):
@@ -96,12 +98,10 @@ def pad_array(arr, target_length):
     current_length = arr.shape[0]
     if current_length >= target_length:
         return arr
-    else:
-        pad_width = target_length - current_length
-        pad_left = pad_width // 2
-        pad_right = pad_width - pad_left
-        padded_arr = np.pad(arr, (pad_left, pad_right), 'constant', constant_values=(0, 0))
-        return padded_arr
+    pad_width = target_length - current_length
+    pad_left = pad_width // 2
+    pad_right = pad_width - pad_left
+    return np.pad(arr, (pad_left, pad_right), 'constant', constant_values=(0, 0))
     
 def split_list_by_n(list_collection, n, pre=0):
     for i in range(0, len(list_collection), n):
@@ -172,9 +172,12 @@ class Svc(object):
               auto_predict_f0=False,
               noice_scale=0.4):
         speaker_id = self.spk2id.__dict__.get(speaker)
-        if not speaker_id and type(speaker) is int:
-            if len(self.spk2id.__dict__) >= speaker:
-                speaker_id = speaker
+        if (
+            not speaker_id
+            and type(speaker) is int
+            and len(self.spk2id.__dict__) >= speaker
+        ):
+            speaker_id = speaker
         sid = torch.LongTensor([int(speaker_id)]).to(self.dev).unsqueeze(0)
         c, f0, uv = self.get_unit_f0(raw_path, tran, cluster_infer_ratio, speaker)
         if "half" in self.net_g_path and torch.cuda.is_available():
@@ -183,7 +186,7 @@ class Svc(object):
             start = time.time()
             audio = self.net_g_ms.infer(c, f0=f0, g=sid, uv=uv, predict_f0=auto_predict_f0, noice_scale=noice_scale)[0,0].data.float()
             use_time = time.time() - start
-            print("vits use time:{}".format(use_time))
+            print(f"vits use time:{use_time}")
         return audio, audio.shape[-1]
     
     def clear_empty(self):

@@ -58,8 +58,7 @@ def rand_gumbel(shape):
 
 
 def rand_gumbel_like(x):
-  g = rand_gumbel(x.size()).to(dtype=x.dtype, device=x.device)
-  return g
+  return rand_gumbel(x.size()).to(dtype=x.dtype, device=x.device)
 
 
 def slice_segments(x, ids_str, segment_size=4):
@@ -120,8 +119,7 @@ def cat_timing_signal_1d(x, min_timescale=1.0, max_timescale=1.0e4, axis=1):
 
 
 def subsequent_mask(length):
-  mask = torch.tril(torch.ones(length, length)).unsqueeze(0).unsqueeze(0)
-  return mask
+  return torch.tril(torch.ones(length, length)).unsqueeze(0).unsqueeze(0)
 
 
 @torch.jit.script
@@ -130,8 +128,7 @@ def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
   in_act = input_a + input_b
   t_act = torch.tanh(in_act[:, :n_channels_int, :])
   s_act = torch.sigmoid(in_act[:, n_channels_int:, :])
-  acts = t_act * s_act
-  return acts
+  return t_act * s_act
 
 
 def convert_pad_shape(pad_shape):

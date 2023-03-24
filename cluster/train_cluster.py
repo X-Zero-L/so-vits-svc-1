@@ -16,11 +16,11 @@ import random
 def train_cluster(in_dir, n_clusters, use_minibatch=True, verbose=False):
 
     logger.info(f"Loading features from {in_dir}")
-    features = []
     nums = 0
-    for path in tqdm.tqdm(in_dir.glob("*.soft.pt")):
-        features.append(torch.load(path).squeeze(0).numpy().T)
-        # print(features[-1].shape)
+    features = [
+        torch.load(path).squeeze(0).numpy().T
+        for path in tqdm.tqdm(in_dir.glob("*.soft.pt"))
+    ]
     features = np.concatenate(features, axis=0)
     print(nums, features.nbytes/ 1024**2, "MB , shape:",features.shape, features.dtype)
     features = features.astype(np.float32)
